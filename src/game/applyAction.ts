@@ -109,7 +109,7 @@ export function applyAction(state: GameState, action: Action): ActionResult {
     case 'PROGRESS_FID': {
       const def = BASIN_DEFS[action.basinId]
       const basin = state.basins[action.basinId]
-      if (!basin.owned) return fail(state, 'FID complete — book liquefaction slots')
+      if (!basin.owned) return fail(state, `Acquire ${def.name} first`)
       if (basin.fidProgress >= 100) return fail(state, 'FID complete — book liquefaction slots')
       const cost = Math.round(def.liquefactionUnitCost * 500_000)
       const res = spend(
