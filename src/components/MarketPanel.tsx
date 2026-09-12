@@ -39,7 +39,7 @@ export function MarketPanel({
         </h3>
         <div className="grid grid-cols-3 gap-3 text-sm">
           <HubCard name="HH" value={state.prices.HH} tip={GLOSSARY.HH} />
-          <HubCard name="TTF" value={state.prices.TTF} tip={GLOSSARY.JKM} />
+          <HubCard name="TTF" value={state.prices.TTF} tip={GLOSSARY.TTF} />
           <HubCard name="JKM" value={state.prices.JKM} tip={GLOSSARY.JKM} />
         </div>
       </section>
