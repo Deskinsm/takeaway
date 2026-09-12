@@ -1,14 +1,16 @@
 import type { GameState } from './types.ts'
 
-/** Volume score: cumulative sold mmbtu scaled to a readable 0–100+ index. */
+/**
+ * Volume score: cumulative SOLD mmbtu scaled to a readable index.
+ * This is NOT reserves / resource — only gas that reached a buyer.
+ */
 export function computeVolumeScore(cumulativeVolume: number): number {
-  // ~50 Bcf (~50e6 mmbtu) ≈ score 50 early-game; grows without hard cap
   return Math.round((cumulativeVolume / 1_000_000) * 10) / 10
 }
 
 /**
- * Margin score: realized average net $/mmbtu × 10, floored display.
- * Diverges from volume when prices crash or gas is stranded (opex still burns).
+ * Margin score: realized average operating profit $/mmbtu.
+ * Diverges from volume when prices crash or gas is left unmarketed (opex drag).
  */
 export function computeMarginScore(cumulativeNet: number, cumulativeVolume: number): number {
   if (cumulativeVolume <= 0) return 0
@@ -21,5 +23,13 @@ export function refreshScores(state: GameState): GameState {
     ...state,
     volumeScore: computeVolumeScore(state.cumulativeVolume),
     marginScore: computeMarginScore(state.cumulativeNet, state.cumulativeVolume),
+  }
+}
+
+/** Guard for tests / UI — never treat volume score as reserves. */
+export function scoreLabels(): { volume: string; margin: string } {
+  return {
+    volume: 'Cumulative sold volume index (not reserves)',
+    margin: 'Realized operating profit $/MMBtu',
   }
 }

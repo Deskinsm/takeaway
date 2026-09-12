@@ -27,9 +27,7 @@ export function getBasinCapacities(state: GameState, basinId: BasinId): BasinCap
   const shipping = state.shippingCapacity
   const def = BASIN_DEFS[basinId]
 
-  // Domestic (pipeline to HH): limited by wells & takeaway
   const domesticPath = def.domesticHub ? Math.min(wells, takeaway) : 0
-  // LNG path: wells → takeaway → liquefaction → shipping
   const lngPath = Math.min(wells, takeaway, liquefaction, shipping)
 
   return { wells, takeaway, liquefaction, shipping, domesticPath, lngPath }
@@ -61,7 +59,6 @@ export function maxSellable(state: GameState, basinId: BasinId): {
   const lngScheduled = scheduledForBasin(state, basinId)
   const lng = Math.min(lngScheduled, caps.lngPath)
 
-  // Remaining well+takeaway after LNG allocation can go domestic if available
   const remainingAfterLng = Math.max(0, Math.min(caps.wells, caps.takeaway) - lng)
   const domestic = def.domesticHub ? Math.min(remainingAfterLng, caps.domesticPath) : 0
 
@@ -72,7 +69,6 @@ export function maxSellable(state: GameState, basinId: BasinId): {
     shipping: caps.shipping,
   }
 
-  // Which constraint binds overall throughput potential
   const chain: { id: ConstraintId; v: number }[] = [
     { id: 'wells', v: caps.wells },
     { id: 'takeaway', v: caps.takeaway },
@@ -114,23 +110,21 @@ export function globalBindingConstraint(state: GameState): ConstraintId {
       }
       continue
     }
-    const steps: { id: ConstraintId; v: number }[] = [
-      { id: 'wells', v: caps.wells },
-      { id: 'takeaway', v: caps.takeaway },
-      { id: 'liquefaction', v: caps.liquefaction },
-      { id: 'shipping', v: caps.shipping },
-    ]
-    // For domestic-only basins with no cargoes, liquefaction/shipping less relevant
     const hasLng = BASIN_DEFS[id].lngFeed || scheduledForBasin(state, id) > 0
     const relevant = hasLng
-      ? steps
+      ? [
+          { id: 'wells' as ConstraintId, v: caps.wells },
+          { id: 'takeaway' as ConstraintId, v: caps.takeaway },
+          { id: 'liquefaction' as ConstraintId, v: caps.liquefaction },
+          { id: 'shipping' as ConstraintId, v: caps.shipping },
+        ]
       : [
           { id: 'wells' as ConstraintId, v: caps.wells },
           { id: 'takeaway' as ConstraintId, v: caps.takeaway },
         ]
 
     for (const s of relevant) {
-      const slack = s.v // lowest capacity binds
+      const slack = s.v
       if (slack < worstSlack) {
         worstSlack = slack
         worst = s.id
@@ -138,7 +132,6 @@ export function globalBindingConstraint(state: GameState): ConstraintId {
     }
   }
 
-  // If prices are crushed and we still produce, surface hub_price as soft signal
   const avg = (state.prices.HH + state.prices.TTF + state.prices.JKM) / 3
   if (avg < 2.0 && worst !== 'wells') {
     return 'hub_price'
@@ -150,10 +143,55 @@ export function globalBindingConstraint(state: GameState): ConstraintId {
 export function hubLabel(hub: HubId): string {
   switch (hub) {
     case 'HH':
-      return 'Henry Hub'
+      return 'Henry Hub (US buyers)'
     case 'TTF':
-      return 'TTF'
+      return 'TTF — Northwest Europe'
     case 'JKM':
-      return 'JKM'
+      return 'JKM — Northeast Asia'
+  }
+}
+
+export function constraintExplain(id: ConstraintId): {
+  what: string
+  why: string
+  expansion: string
+} {
+  switch (id) {
+    case 'wells':
+      return {
+        what: 'Well / production potential — how much gas your completed wells could produce this quarter.',
+        why: 'If wells are the lowest link, you cannot sell more without drilling (or waiting for decline — not modeled yet).',
+        expansion: 'Drill more wells to raise potential output. Fixed per-well output is an intentional simplification.',
+      }
+    case 'takeaway':
+      return {
+        what: 'Pipeline takeaway — capacity to move gas from the field to buyers.',
+        why: 'Gas only earns revenue when it reaches a customer. Extra well potential is left in the ground.',
+        expansion: 'Increase pipeline capacity (buy takeaway) to raise marketed sales.',
+      }
+    case 'liquefaction':
+      return {
+        what: 'Liquefaction capacity — space at an LNG plant to cool gas into liquid.',
+        why: 'Export sales need plant throughput after FID construction completes.',
+        expansion: 'Reserve liquefaction capacity (after FID is online); construction takes additional quarters.',
+      }
+    case 'shipping':
+      return {
+        what: 'LNG shipping — tanker capacity to move cargoes to customer regions.',
+        why: 'Without ships, liquefied volumes cannot reach Europe or Asia hubs.',
+        expansion: 'Book more shipping, then nominate cargoes to TTF or JKM.',
+      }
+    case 'hub_price':
+      return {
+        what: 'Hub prices are very low this quarter (simulated scenario).',
+        why: 'You may still sell, but operating profit per MMBtu is weak — volume chasing hurts margin score.',
+        expansion: 'Wait for prices, cut high-cost paths, or divert cargoes to better netbacks.',
+      }
+    default:
+      return {
+        what: 'No binding constraint flagged.',
+        why: 'Chain links are balanced or idle.',
+        expansion: 'Grow the next limiting link as you expand.',
+      }
   }
 }

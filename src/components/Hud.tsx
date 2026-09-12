@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { GLOSSARY } from '../game/index.ts'
+import { GLOSSARY, scoreLabels } from '../game/index.ts'
 import type { GameState } from '../game/index.ts'
 import { Tip } from './Tooltip.tsx'
 import { money, price } from './format.ts'
@@ -13,6 +13,8 @@ const CONSTRAINT_LABEL: Record<string, string> = {
   none: '—',
 }
 
+const SCORES = scoreLabels()
+
 export function Hud({ state }: { state: GameState }) {
   return (
     <header className="grid grid-cols-2 gap-2 border-b border-[var(--color-line)] bg-[var(--color-panel)] px-3 py-2 md:grid-cols-7">
@@ -21,49 +23,47 @@ export function Hud({ state }: { state: GameState }) {
           Q{state.quarter} {state.year}
         </span>
       </HudCell>
-      <HudCell label="CASH">
+      <HudCell
+        label={
+          <Tip label={GLOSSARY.cash}>CASH</Tip>
+        }
+      >
         <span className={`num ${state.cash < 0 ? 'text-[var(--color-danger)]' : ''}`}>
           {money(state.cash)}
         </span>
       </HudCell>
-      <HudCell
-        label={
-          <Tip label="Cumulative sold volume index (mmbtu-based). Chase this and you may ignore margin.">
-            VOLUME Δ
-          </Tip>
-        }
-      >
+      <HudCell label={<Tip label={SCORES.volume}>SOLD Δ</Tip>}>
         <span className="num text-[var(--color-cyan)]">{state.volumeScore.toFixed(1)}</span>
       </HudCell>
       <HudCell
         label={
-          <Tip label="Realized average net $/mmbtu after costs. Price crashes and stranded gas pull this down.">
-            MARGIN $/mmbtu
+          <Tip label={SCORES.margin}>
+            OP. PROFIT $/MMBtu
           </Tip>
         }
       >
         <span className="num text-[var(--color-amber)]">{state.marginScore.toFixed(2)}</span>
       </HudCell>
-      <HudCell
-        label={
-          <Tip label={GLOSSARY.takeaway}>
-            BINDING
-          </Tip>
-        }
-      >
+      <HudCell label={<Tip label={GLOSSARY.takeaway}>BINDING</Tip>}>
         <span className="num tracking-wide text-[var(--color-danger)]">
           {CONSTRAINT_LABEL[state.bindingConstraint] ?? state.bindingConstraint}
         </span>
       </HudCell>
-      <HudCell label={<Tip label={GLOSSARY.HH}>HH</Tip>}>
+      <HudCell
+        label={
+          <Tip label={`${GLOSSARY.HH} Simulated scenario prices.`}>
+            HH (US)
+          </Tip>
+        }
+      >
         <span className="num">{price(state.prices.HH)}</span>
       </HudCell>
       <HudCell
         label={
           <>
-            <Tip label={GLOSSARY.TTF}>TTF</Tip>
+            <Tip label={GLOSSARY.TTF}>EU</Tip>
             {' / '}
-            <Tip label={GLOSSARY.JKM}>JKM</Tip>
+            <Tip label={GLOSSARY.JKM}>ASIA</Tip>
           </>
         }
       >
